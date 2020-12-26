@@ -2,7 +2,7 @@
 .nuxt
 node_modules
 npm-debug.log
-config.js
+/config.js
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
