@@ -18,8 +18,8 @@ module.exports = {
   port: 8000,
   services: [
     `ifxLock`,
-    `prisma`,
     `sqlite`,
+    `prisma`,
     `nuxt`,
     `salesforce`,
     `sfScanner`,

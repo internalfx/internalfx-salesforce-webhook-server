@@ -1,7 +1,6 @@
 
 module.exports = async function (config) {
   const db = require(`better-sqlite3`)(`./ifx-sws.sqlite`, {
-    fileMustExist: true,
     timeout: 30000
   })
 
