@@ -1,0 +1,9 @@
+
+.nuxt
+node_modules
+npm-debug.log
+config.js
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sh
