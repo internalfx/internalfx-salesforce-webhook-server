@@ -28,7 +28,7 @@ module.exports = async function (config) {
   }
 
   const scan = async function () {
-    const lock = ifxLock.failLock(`scanRecords`, 30000)
+    const lock = ifxLock.failLock(`scanRecords`)
 
     try {
       const sfObjects = sqlite.prepare(`
