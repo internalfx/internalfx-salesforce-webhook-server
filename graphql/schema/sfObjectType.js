@@ -2,6 +2,7 @@
 const _ = require(`lodash`)
 const { gql } = require(`apollo-server-koa`)
 const { DateTime } = require(`luxon`)
+const substruct = require(`@internalfx/substruct`)
 
 const typeDefs = gql`
   type sfObjectType {
@@ -54,6 +55,19 @@ const resolvers = {
       payload.enabled = payload.enabled ? 1 : 0
       payload.syncDate = DateTime.fromJSDate(payload.syncDate).toUTC().toISO()
       let sfObjectId
+
+      if (payload.name) {
+        const sf = substruct.services.salesforce
+        try {
+          await sf.sobject(payload.name).describe()
+        } catch (err) {
+          if (err.errorCode === `NOT_FOUND`) {
+            throw new Error(`The SalesForce object name given does not exist! Did you forget '__c'?`)
+          } else {
+            throw err
+          }
+        }
+      }
 
       ctx.sqlite.transaction(function () {
         if (!payload.id) {
