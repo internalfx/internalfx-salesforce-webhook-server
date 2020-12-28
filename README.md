@@ -37,3 +37,48 @@ npx prisma migrate deploy --preview-feature
 ```
 node app.js
 ```
+
+# Usage
+
+## Add SalesForce objects that you would like to watch.
+
+Click "SalesForce Objects" in the left hand menu.
+
+![](https://raw.githubusercontent.com/internalfx/internalfx-salesforce-webhook-server/main/resources/blank_sfobjects.png)
+
+Click the "add salesforce object" button on the top right.
+
+![](https://raw.githubusercontent.com/internalfx/internalfx-salesforce-webhook-server/main/resources/form_sfobjects.png)
+
+| Field | Description |
+| --- | --- |
+| Object Name | The API name in SalesForce |
+| Enabled? | This enables/disables the sync with SalesForce |
+| Sync Date | The server will query for all records that have been created or changed since this date. This date will move forward as the server runs. You can move this date back to force a sync of older records |
+
+Click "Save" when you are done.
+
+![](https://raw.githubusercontent.com/internalfx/internalfx-salesforce-webhook-server/main/resources/list_sfobjects.png)
+
+## Add webhooks and subscribe to objects.
+
+Click "Webhooks" in the left hand menu.
+
+![](https://raw.githubusercontent.com/internalfx/internalfx-salesforce-webhook-server/main/resources/blank_webhooks.png)
+
+Click the "create webhook" button on the top right.
+
+![](https://raw.githubusercontent.com/internalfx/internalfx-salesforce-webhook-server/main/resources/form_webhooks.png)
+
+| Field | Description |
+| --- | --- |
+| Name | A friendly name to remind you of what this webhook is for |
+| URL | The URL the webhook will be "posted" to |
+| Enabled? | This enables/disables the webhook |
+| Object Interests | The webhooks will post changed for any SalesForce objects listed here |
+
+Click "Save" when you are done.
+
+![](https://raw.githubusercontent.com/internalfx/internalfx-salesforce-webhook-server/main/resources/list_webhooks.png)
+
+## Profit!
