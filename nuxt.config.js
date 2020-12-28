@@ -34,11 +34,11 @@ module.exports = {
         config.devtool = `inline-source-map`
       }
 
-      config.performance.maxEntrypointSize = 3000000
-      config.performance.maxAssetSize = 3000000
+      // config.performance.maxEntrypointSize = 3000000
+      // config.performance.maxAssetSize = 3000000
 
-      config.optimization.runtimeChunk = false
-      config.optimization.splitChunks = false
+      // config.optimization.runtimeChunk = false
+      // config.optimization.splitChunks = false
     }
   },
   buildModules: [
