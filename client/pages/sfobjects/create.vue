@@ -71,7 +71,7 @@ export default {
   <v-container v-if="sfObjectType">
     <v-row class="mt-6 mb-7 align-center">
       <v-col class="d-flex">
-        <h1>Create SalesForce Object</h1>
+        <h1>Add SalesForce Object</h1>
       </v-col>
       <v-col cols="auto" class="d-flex justify-end">
       </v-col>
