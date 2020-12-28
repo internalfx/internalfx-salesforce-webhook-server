@@ -6,9 +6,9 @@ const substruct = require(`@internalfx/substruct`)
 module.exports = async function (config) {
   const scanner = substruct.services.sfScanner
   const processor = substruct.services.requestProcessor
-  const jobs = {}
+  const sf = substruct.services.salesforce
 
-  jobs.scannerJob = cron.schedule(config.webhookCron, async function () {
+  cron.schedule(config.webhookCron, async function () {
     try {
       console.log(`CRON`)
 
@@ -19,15 +19,8 @@ module.exports = async function (config) {
     }
   })
 
-  jobs.scannerJob.start()
-
-  const stopAll = function () {
-    for (const [key] of Object.entries(jobs)) {
-      jobs[key].stop()
-    }
-  }
-
-  return {
-    stopAll
-  }
+  cron.schedule(`0 0 * * * *`, async function () {
+    console.log(`Clearing Object caches...`)
+    sf.cache.clear()
+  })
 }
