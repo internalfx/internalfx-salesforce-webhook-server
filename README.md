@@ -53,7 +53,7 @@ Click the "add salesforce object" button on the top right.
 | Field | Description |
 | --- | --- |
 | Object Name | The API name in SalesForce |
-| Enabled? | This enables/disables the sync with SalesForce |
+| Enabled | This enables/disables the sync with SalesForce |
 | Sync Date | The server will query for all records that have been created or changed since this date. This date will move forward as the server runs. You can move this date back to force a sync of older records |
 
 Click "Save" when you are done.
@@ -74,8 +74,8 @@ Click the "create webhook" button on the top right.
 | --- | --- |
 | Name | A friendly name to remind you of what this webhook is for |
 | URL | The URL the webhook will be "posted" to |
-| Enabled? | This enables/disables the webhook |
-| Object Interests | The webhooks will post changed for any SalesForce objects listed here |
+| Enabled | This enables/disables the webhook |
+| Object Interests | The webhook will post changes for any SalesForce objects listed here |
 
 Click "Save" when you are done.
 
