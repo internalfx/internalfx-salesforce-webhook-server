@@ -20,6 +20,10 @@ module.exports = async function (config) {
       .where(`SystemModstamp >= ${currentSyncDate.toISO()}`)
       .orderby(`SystemModstamp`, `ASC`)
       .maxFetch(10000)
+      .on(`error`, function (err) {
+        console.log(`SalesForce Query Error =======================`, sfObject.name)
+        console.log(err)
+      })
       .stream()
 
     sfQuery.pipe(csvParser)
