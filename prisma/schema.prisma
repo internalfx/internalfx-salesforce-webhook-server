@@ -16,7 +16,7 @@ model sfObject {
 
   id String @id
   type String
-  timestamp DateTime?
+  timestamp DateTime
   data String
   changes String?
 }
