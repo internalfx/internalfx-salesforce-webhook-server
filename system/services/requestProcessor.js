@@ -10,7 +10,7 @@ module.exports = async function (config) {
   const ifxLock = substruct.services.ifxLock
 
   const process = async function () {
-    const lock = ifxLock.failLock(`requestProcessor`, 30000)
+    const lock = ifxLock.failLock(`requestProcessor`, 120 * 1000)
 
     try {
       const webhookIds = sqlite.prepare(`
@@ -40,7 +40,7 @@ module.exports = async function (config) {
           method: webhook.method,
           json: true,
           body: payload,
-          timeout: 45000
+          timeout: 60000
         }))
 
         if (!lock.isValid()) {
