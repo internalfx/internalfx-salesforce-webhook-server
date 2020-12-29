@@ -25,12 +25,13 @@ model webhookRequest {
   @@map(name: "webhookRequests")
 
   id Int @default(autoincrement()) @id
-  url String
-  method String @default("post")
   headers String?
   data String?
   attempts Int @default(0)
   nextRunDate DateTime
+
+  webhookId Int
+  webhook webhook @relation(fields: [webhookId], references: [id])
 }
 
 model webhook {
@@ -41,6 +42,8 @@ model webhook {
   url String
   method String @default("post")
   enabled Boolean @default(false)
+
+  webhookRequests webhookRequest[]
 
   webhookInterests webhookInterest[]
 }

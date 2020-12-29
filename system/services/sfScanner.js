@@ -124,12 +124,10 @@ module.exports = async function (config) {
             for (const webhook of webhooks) {
               sqlite.prepare(`
                 INSERT INTO webhookRequests
-                (url, method, headers, data, nextRunDate)
+                (headers, data, nextRunDate, webhookId)
                 VALUES
-                ($url, $method, $headers, $data, $nextRunDate);
+                ($headers, $data, $nextRunDate, $webhookId);
               `).run({
-                url: webhook.url,
-                method: webhook.method,
                 headers: null,
                 data: JSON.stringify({
                   type: sfObject.name,
@@ -137,7 +135,8 @@ module.exports = async function (config) {
                   changes: result,
                   record: sfRecord
                 }),
-                nextRunDate: getSQLTimestamp()
+                nextRunDate: getSQLTimestamp(),
+                webhookId: webhook.id
               })
             }
           }
