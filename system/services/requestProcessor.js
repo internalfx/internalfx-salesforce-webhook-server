@@ -19,7 +19,9 @@ module.exports = async function (config) {
 
       await Promise.map(webhookIds, async function (webhookId) {
         const requests = sqlite.prepare(`
-          SELECT * FROM webhookRequests WHERE nextRunDate <= $nextRunDate AND webhookId == $webhookId;
+          SELECT * FROM webhookRequests
+          WHERE nextRunDate <= $nextRunDate AND webhookId == $webhookId
+          LIMIT 500;
         `).all({
           nextRunDate: getSQLTimestamp(),
           webhookId
@@ -37,7 +39,8 @@ module.exports = async function (config) {
           url: webhook.url,
           method: webhook.method,
           json: true,
-          body: payload
+          body: payload,
+          timeout: 45000
         }))
 
         if (!lock.isValid()) {
