@@ -12,10 +12,13 @@ generator client {
 
 model sfObject {
   @@map(name: "sfObjects")
+  @@index([type, timestamp])
 
   id String @id
   type String
+  timestamp DateTime?
   data String
+  changes String?
 }
 
 model webhookRequest {

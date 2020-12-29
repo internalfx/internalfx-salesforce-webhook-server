@@ -68,13 +68,15 @@ module.exports = async function (config) {
             result = sfRecord
             sqlite.prepare(`
               INSERT INTO sfObjects
-              (id, type, data)
+              (id, type, timestamp, data, changes)
               VALUES
-              ($id, $type, $data);
+              ($id, $type, $timestamp, $data, $changes);
             `).run({
               id: sfRecord.Id,
               type: sfObject.name,
-              data: JSON.stringify(sfRecord)
+              timestamp: DateTime.fromISO(sfRecord.SystemModstamp).toUTC().toISO(),
+              data: JSON.stringify(sfRecord),
+              changes: null
             })
           } else {
             const lastData = JSON.parse(record.data)
@@ -89,12 +91,16 @@ module.exports = async function (config) {
                 UPDATE sfObjects
                 SET
                   type = $type,
-                  data = $data
+                  timestamp = $timestamp,
+                  data = $data,
+                  changes = $changes
                 WHERE id = $id;
               `).run({
                 id: sfRecord.Id,
                 type: sfObject.name,
-                data: JSON.stringify(sfRecord)
+                timestamp: DateTime.fromISO(sfRecord.SystemModstamp).toUTC().toISO(),
+                data: JSON.stringify(sfRecord),
+                changes: _.isEmpty(result) ? null : JSON.stringify(result)
               })
             }
           }
