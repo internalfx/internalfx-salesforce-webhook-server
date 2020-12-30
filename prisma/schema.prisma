@@ -12,7 +12,7 @@ generator client {
 
 model sfObject {
   @@map(name: "sfObjects")
-  @@index([type, timestamp])
+  @@index([type, timestamp, id])
 
   id String @id
   type String
@@ -23,6 +23,7 @@ model sfObject {
 
 model webhookRequest {
   @@map(name: "webhookRequests")
+  @@index([webhookId, nextRunDate, id])
 
   id Int @default(autoincrement()) @id
   headers String?
