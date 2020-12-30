@@ -20,14 +20,13 @@ module.exports = async function (config) {
       // console.log(arguments)
       const worker = await getWorker()
 
-      return new Promise((resolve, reject) => {
+      return new Promise(function (resolve, reject) {
         worker.job = {
           resolve,
-          reject,
-          message: { sql, funcName, parameters }
+          reject
         }
 
-        worker.worker.postMessage(worker.job.message)
+        worker.worker.postMessage({ sql, funcName, parameters })
       })
     }
 
@@ -50,15 +49,14 @@ module.exports = async function (config) {
     if (readyWorker == null) {
       const ticket = {}
 
-      const promise = new Promise(function (resolve, reject) {
+      return new Promise(function (resolve, reject) {
         ticket.resolve = resolve
         ticket.reject = reject
+
+        queue.push(ticket)
       })
-
-      queue.push(ticket)
-
-      return promise
     } else {
+      readyWorker.job = {}
       return readyWorker
     }
   }
@@ -79,6 +77,7 @@ module.exports = async function (config) {
       obj.ready = true
       const ticket = queue.shift()
       if (ticket) {
+        obj.job = {}
         ticket.resolve(obj)
       }
     })
@@ -89,6 +88,7 @@ module.exports = async function (config) {
       obj.job = null
       const ticket = queue.shift()
       if (ticket) {
+        obj.job = {}
         ticket.resolve(obj)
       }
     })
