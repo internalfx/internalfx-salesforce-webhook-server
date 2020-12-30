@@ -6,6 +6,8 @@ import { to, errMsg } from '../../../lib/utils.js'
 import gql from 'graphql-tag'
 // import _ from 'lodash'
 
+import webhookReplayDialog from '../../ui/webhookReplayDialog.vue'
+
 export default {
   layout: `default`,
   apollo: {
@@ -40,7 +42,8 @@ export default {
   },
   data: function () {
     return {
-      searchVar: ``,
+      replayWebhookId: null,
+      replayWebhookDialog: false,
       headers: [
         { text: `Name`, value: `name`, sortable: false },
         { text: `URL`, value: `url`, sortable: false },
@@ -51,6 +54,7 @@ export default {
     }
   },
   components: {
+    webhookReplayDialog
   },
   computed: {
   },
@@ -64,6 +68,27 @@ export default {
     ]),
     onClickRow: function (item) {
       this.$router.push({ path: `/webhooks/${item.id}/edit` })
+    },
+    replayWebhook: async function (isoDate) {
+      this.inFlight = true
+      const res = await to(this.$apollo.mutate({
+        mutation: gql`
+          mutation ($id: Int!, $syncDate: DateTime!) {
+            replayWebhook (id: $id, syncDate: $syncDate)
+          }
+        `,
+        variables: {
+          id: this.replayWebhookId,
+          syncDate: isoDate
+        },
+        refetchQueries: [`allWebhooks`]
+      }))
+
+      if (res.isError) {
+        this.showSnackbar({ message: errMsg(res), color: `error` })
+      }
+
+      this.inFlight = false
     },
     upsertWebhook: async function (data) {
       this.inFlight = true
@@ -172,6 +197,16 @@ export default {
           <v-tooltip top>
             <template v-slot:activator="{on}">
               <span v-on="on">
+                <v-btn @click.stop="replayWebhookId = item.id; replayWebhookDialog = true" text fab small class="ma-0 mr-2">
+                  <v-icon>fa-history</v-icon>
+                </v-btn>
+              </span>
+            </template>
+            <span>Replay</span>
+          </v-tooltip>
+          <v-tooltip top>
+            <template v-slot:activator="{on}">
+              <span v-on="on">
                 <v-btn @click.stop text fab small class="ma-0 mr-2" :to="{path: `/webhooks/${item.id}/edit`}">
                   <v-icon>fa-edit</v-icon>
                 </v-btn>
@@ -199,6 +234,9 @@ export default {
       <v-col class="pb-0">
       </v-col>
     </v-row>
+
+    <webhookReplayDialog v-model="replayWebhookDialog" @execute="replayWebhook($event)" />
+
   </v-container>
 </template>
 

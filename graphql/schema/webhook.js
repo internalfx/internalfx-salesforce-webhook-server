@@ -1,6 +1,8 @@
 
 const _ = require(`lodash`)
 const { gql } = require(`apollo-server-koa`)
+const { DateTime } = require(`luxon`)
+const { getSQLTimestamp } = require(`../../lib/utils.js`)
 
 const typeDefs = gql`
   type Webhook {
@@ -32,6 +34,7 @@ const typeDefs = gql`
   extend type Mutation {
     upsertWebhook (payload: WebhookInput!): Webhook
     destroyWebhook (id: Int!): Boolean
+    replayWebhook (id: Int! syncDate: DateTime!): Boolean
   }
 `
 
@@ -113,6 +116,64 @@ const resolvers = {
       `).run({ id: args.id })
 
       return true
+    },
+    replayWebhook: async function (obj, args, ctx, info) {
+      const webhook = ctx.sqlite.prepare(`
+        SELECT * FROM webhooks WHERE id = $id;
+      `).get({ id: args.id })
+
+      const sfObjectNames = ctx.sqlite.prepare(`
+        SELECT sot.name FROM webhooks AS w
+        JOIN webhookInterests AS wi ON wi.webhookId == w.id
+        JOIN sfObjectTypes AS sot ON sot.id == wi.sfObjectTypeId
+        WHERE w.id == $id;
+      `).all({ id: webhook.id }).map(i => i.name)
+
+      const queryNext = ctx.sqlite.asyncPrepare(`
+        SELECT * FROM sfObjects
+        WHERE type IN (${sfObjectNames.map(i => `'${i}'`).join(`,`)}) AND (timestamp > $timestamp OR (timestamp == $timestamp AND id > $lastId))
+        ORDER BY timestamp ASC, id ASC
+        LIMIT 1000;
+      `)
+
+      let timestamp = DateTime.fromJSDate(args.syncDate).toUTC().toISO()
+      let lastId = ``
+
+      let records = await queryNext.all({ timestamp, lastId })
+
+      while (records.length > 0) {
+        const lastRecord = _.last(records)
+
+        console.log(records.map(i => `${i.id}:${i.timestamp}`))
+
+        const queryInsertWebhookRequest = ctx.sqlite.prepare(`
+          INSERT INTO webhookRequests
+          (headers, data, nextRunDate, webhookId)
+          VALUES
+          ($headers, $data, $nextRunDate, $webhookId);
+        `)
+
+        ctx.sqlite.transaction(function () {
+          for (const record of records) {
+            queryInsertWebhookRequest.run({
+              headers: null,
+              data: JSON.stringify({
+                type: record.type,
+                id: record.id,
+                changes: _.isEmpty(record.changes) ? null : JSON.parse(record.changes),
+                record: JSON.parse(record.data)
+              }),
+              nextRunDate: getSQLTimestamp(),
+              webhookId: webhook.id
+            })
+          }
+        })()
+
+        timestamp = lastRecord.timestamp
+        lastId = lastRecord.id
+
+        records = await queryNext.all({ timestamp, lastId })
+      }
     }
   },
   Webhook: {
