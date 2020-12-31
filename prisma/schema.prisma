@@ -10,6 +10,14 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model session {
+  @@map(name: "sessions")
+
+  id Int @default(autoincrement()) @id
+  token String
+  createdAt DateTime
+}
+
 model sfObject {
   @@map(name: "sfObjects")
   @@index([type, timestamp, id])
@@ -19,6 +27,16 @@ model sfObject {
   timestamp DateTime
   data String
   changes String?
+}
+
+model sfObjectType {
+  @@map(name: "sfObjectTypes")
+
+  id Int @default(autoincrement()) @id
+  name String @unique
+  enabled Boolean @default(false)
+  syncDate DateTime
+  deleteDate DateTime
 }
 
 model webhookRequest {
@@ -60,21 +78,4 @@ model webhookInterest {
 
   sfObjectTypeId Int
   sfObjectType sfObjectType @relation(fields: [sfObjectTypeId], references: [id])
-}
-
-model sfObjectType {
-  @@map(name: "sfObjectTypes")
-
-  id Int @default(autoincrement()) @id
-  name String @unique
-  enabled Boolean @default(false)
-  syncDate DateTime
-}
-
-model session {
-  @@map(name: "sessions")
-
-  id Int @default(autoincrement()) @id
-  token String
-  createdAt DateTime
 }

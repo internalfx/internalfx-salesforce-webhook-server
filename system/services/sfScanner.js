@@ -49,6 +49,15 @@ module.exports = async function (config) {
         let lastRecord = null
         let counter = 0
 
+        const webhooks = sqlite.prepare(`
+          SELECT w.* FROM sfObjectTypes AS ot
+          JOIN webhookInterests as wi ON wi.sfObjectTypeId == ot.id
+          JOIN webhooks as w ON w.id == wi.webhookId
+          WHERE ot.name == $name AND w.enabled == 1;
+        `).all({
+          name: sfObject.name
+        })
+
         for await (const sfRecord of iterator) {
           lastRecord = sfRecord
           counter += 1
@@ -112,15 +121,6 @@ module.exports = async function (config) {
               console.log(`${sfObject.name} - ${sfRecord.Name}: ${Object.keys(result).length} changes`)
             }
 
-            const webhooks = sqlite.prepare(`
-              SELECT w.* FROM sfObjectTypes AS ot
-              JOIN webhookInterests as wi ON wi.sfObjectTypeId == ot.id
-              JOIN webhooks as w ON w.id == wi.webhookId
-              WHERE ot.name == $name AND w.enabled == 1;
-            `).all({
-              name: sfObject.name
-            })
-
             for (const webhook of webhooks) {
               sqlite.prepare(`
                 INSERT INTO webhookRequests
@@ -132,6 +132,7 @@ module.exports = async function (config) {
                 data: JSON.stringify({
                   type: sfObject.name,
                   id: sfRecord.Id,
+                  action: `update`,
                   changes: result,
                   record: sfRecord
                 }),
@@ -173,7 +174,56 @@ module.exports = async function (config) {
             syncDate: stringifySQLTimestamp(newSyncDate)
           })
         }
-      })
+
+        // Check for deletes
+        let currentDeleteDate = parseSQLTimestamp(sfObject.deleteDate)
+        currentDeleteDate = currentDeleteDate < DateTime.utc().minus({ days: 29 }) ? DateTime.utc().minus({ days: 29 }) : currentDeleteDate
+
+        const res = await sf.sobject(sfObject.name).deleted(currentDeleteDate.toISO(), currentDeleteDate.plus({ day: 3 }).toISO())
+        const deletedRecords = res.deletedRecords
+        const latestDateCovered = res.latestDateCovered ? DateTime.fromISO(res.latestDateCovered) : null
+
+        for (const item of deletedRecords) {
+          for (const webhook of webhooks) {
+            sqlite.prepare(`
+              INSERT INTO webhookRequests
+              (headers, data, nextRunDate, webhookId)
+              VALUES
+              ($headers, $data, $nextRunDate, $webhookId);
+            `).run({
+              headers: null,
+              data: JSON.stringify({
+                type: sfObject.name,
+                id: item.id,
+                action: `delete`,
+                changes: null,
+                record: null
+              }),
+              nextRunDate: getSQLTimestamp(),
+              webhookId: webhook.id
+            })
+          }
+
+          sqlite.prepare(`
+            DELETE FROM sfObjects WHERE id = $id;
+          `).run({ id: item.id })
+        }
+
+        let nextDeleteDate = currentDeleteDate.plus({ day: 3 })
+
+        if (latestDateCovered) {
+          nextDeleteDate = nextDeleteDate > latestDateCovered ? latestDateCovered : nextDeleteDate
+        }
+
+        sqlite.prepare(`
+          UPDATE sfObjectTypes
+          SET deleteDate = $deleteDate
+          WHERE name == $name;
+        `).run({
+          name: sfObject.name,
+          deleteDate: stringifySQLTimestamp(nextDeleteDate)
+        })
+      }, { concurrency: 2 })
     } catch (err) {
       console.log(err)
     }
