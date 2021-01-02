@@ -160,6 +160,7 @@ const resolvers = {
               data: JSON.stringify({
                 type: record.type,
                 id: record.id,
+                action: `update`,
                 changes: _.isEmpty(record.changes) ? null : JSON.parse(record.changes),
                 record: JSON.parse(record.data)
               }),
