@@ -23,4 +23,8 @@ module.exports = async function (config) {
     console.log(`Clearing Object caches...`)
     sf.cache.clear()
   })
+
+  cron.schedule(`0 */5 * * * *`, async function () {
+    await sf.ping()
+  })
 }
