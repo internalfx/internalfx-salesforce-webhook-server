@@ -202,7 +202,7 @@ module.exports = {
       LIMIT 1000;
     `)
 
-    let timestamp = DateTime.fromISODate(args.syncDate).toUTC().toISO()
+    let timestamp = DateTime.fromISO(args.syncDate).toUTC().toISO()
     let lastId = ``
 
     let events = queryNext.all({ timestamp, lastId })
