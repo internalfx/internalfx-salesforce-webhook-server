@@ -1,23 +1,20 @@
 
 <script>
 import { mapActions } from 'vuex'
-import { to, errMsg } from '../../../lib/utils.js'
-import gql from 'graphql-tag'
-import moment from 'moment'
+import { to, errMsg } from '~lib/utils.js'
+import { DateTime } from 'luxon'
 
 export default {
   layout: `default`,
   data: function () {
     return {
       inFlight: false,
-      sfObjectType: {
-        id: null,
+      sfObject: {
         name: null,
         enabled: false,
-        syncDate: moment().format(`YYYY-MM-DD`)
+        syncDate: DateTime.local().startOf(`day`).toUTC().toISO(),
       },
       dateModal: false,
-      date: new Date().toISOString().substr(0, 10)
     }
   },
   components: {
@@ -25,33 +22,21 @@ export default {
   computed: {
     pickerValue: {
       get: function () {
-        return moment(this.sfObjectType.syncDate).format(`YYYY-MM-DD`)
+        return DateTime.fromISO(this.sfObject.syncDate).toLocal().toISODate()
       },
       set: function (value) {
-        this.sfObjectType.syncDate = moment(value).toDate()
-      }
-    }
+        this.sfObject.syncDate = DateTime.fromISO(value).toUTC().toISO()
+      },
+    },
   },
   methods: {
     ...mapActions([
       `showConfirm`,
-      `showSnackbar`
+      `showSnackbar`,
     ]),
     save: async function () {
       this.inFlight = true
-      const res = await to(this.$apollo.mutate({
-        mutation: gql`
-          mutation ($payload: sfObjectTypeInput!) {
-            upsertSfObjectType (payload: $payload) {
-              id
-            }
-          }
-        `,
-        variables: {
-          payload: this.sfObjectType
-        },
-        refetchQueries: [`allSfObjectTypes`]
-      }))
+      const res = await to(this.$axios.post(`/api/sfobjects-create`, this.sfObject))
 
       if (res.isError) {
         this.showSnackbar({ message: errMsg(res), color: `error` })
@@ -61,14 +46,14 @@ export default {
       }
 
       this.inFlight = false
-    }
-  }
+    },
+  },
 }
 
 </script>
 
 <template>
-  <v-container v-if="sfObjectType">
+  <v-container v-if="sfObject">
     <v-row class="mt-6 mb-7 align-center">
       <v-col class="d-flex">
         <h1>Add SalesForce Object</h1>
@@ -77,8 +62,8 @@ export default {
       </v-col>
     </v-row>
 
-    <v-text-field v-model="sfObjectType.name" outlined label="Object Name" />
-    <v-switch v-model="sfObjectType.enabled" label="Enabled" class="ma-0 py-1" />
+    <v-text-field v-model="sfObject.name" outlined label="Object Name" />
+    <v-switch v-model="sfObject.enabled" label="Enabled" class="ma-0 py-1" />
     <v-dialog
       ref="dialog"
       v-model="dateModal"
@@ -105,8 +90,8 @@ export default {
 
     <v-row>
       <v-col class="d-flex align-center">
-        <v-btn x-large color="primary" :loading="inFlight" :disabled="inFlight" @click="save"><v-icon left>fa-check</v-icon> Save</v-btn>
-        <v-btn class="ml-7" text color="secondary" @click="$router.go(-1)"><v-icon left>fa-times</v-icon> Cancel</v-btn>
+        <v-btn x-large color="primary" :loading="inFlight" :disabled="inFlight" @click="save"><v-icon left>mdi-check</v-icon> Save</v-btn>
+        <v-btn class="ml-7" text color="secondary" @click="$router.go(-1)"><v-icon left>mdi-close</v-icon> Cancel</v-btn>
       </v-col>
       <v-col cols="auto" class="d-flex align-center justify-end">
       </v-col>

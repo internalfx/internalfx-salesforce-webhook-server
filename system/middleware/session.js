@@ -1,5 +1,5 @@
 
-const substruct = require(`@internalfx/substruct`)
+const substruct = require(`../../substruct.js`)
 const _ = require(`lodash`)
 const { parseSQLTimestamp } = require(`../../lib/utils.js`)
 const { DateTime } = require(`luxon`)

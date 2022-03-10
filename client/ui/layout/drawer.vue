@@ -6,23 +6,23 @@ import { mapFields } from 'vuex-map-fields'
 export default {
   data: function () {
     return {
-      navColor: `#606060`
+      navColor: `#606060`,
     }
   },
   components: {
   },
   computed: {
     ...mapFields({
-      drawer: `drawer`
-    })
+      drawer: `drawer`,
+    }),
   },
   methods: {
     ...mapActions([
-      `logout`
-    ])
+      `logout`,
+    ]),
   },
   mounted: function () {
-  }
+  },
 }
 </script>
 
@@ -38,11 +38,11 @@ export default {
     >
       <v-list>
         <v-list-item :color="navColor" to="/webhooks" nuxt>
-          <v-list-item-action><v-icon>fa-cogs</v-icon></v-list-item-action>
+          <v-list-item-action><v-icon>mdi-webhook</v-icon></v-list-item-action>
           <v-list-item-content><v-list-item-title>Webhooks</v-list-item-title></v-list-item-content>
         </v-list-item>
         <v-list-item :color="navColor" to="/sfobjects" nuxt>
-          <v-list-item-action><v-icon>fa-project-diagram</v-icon></v-list-item-action>
+          <v-list-item-action><v-icon>mdi-sitemap</v-icon></v-list-item-action>
           <v-list-item-content><v-list-item-title>SalesForce Objects</v-list-item-title></v-list-item-content>
         </v-list-item>
       </v-list>

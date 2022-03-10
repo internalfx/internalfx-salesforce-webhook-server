@@ -3,8 +3,8 @@ const csv = require(`csv`)
 const _ = require(`lodash`)
 const Promise = require(`bluebird`)
 const diff = require(`deep-diff`)
-const { getSQLTimestamp, stringifySQLTimestamp, parseSQLTimestamp } = require(`../../lib/utils.js`)
-const substruct = require(`@internalfx/substruct`)
+const { getSQLTimestamp, parseSQLTimestamp, getEventKey } = require(`../../lib/utils.js`)
+const substruct = require(`../../substruct.js`)
 const { DateTime } = require(`luxon`)
 
 module.exports = async function (config) {
@@ -12,13 +12,27 @@ module.exports = async function (config) {
   const sf = substruct.services.salesforce
   const ifxLock = substruct.services.ifxLock
 
-  const getIterator = async function (sfObject, currentSyncDate) {
+  const getIterator = async function (sfObject, currentSyncDate, currentSyncId) {
     const csvParser = csv.parse({ columns: true })
+
+    let where
+
+    if (currentSyncId) {
+      where = `
+        (SystemModstamp = ${currentSyncDate.toISO()} AND Id > '${currentSyncId}')
+        OR
+        SystemModstamp > ${currentSyncDate.toISO()}
+      `
+    } else {
+      where = `
+        SystemModstamp >= ${currentSyncDate.toISO()}
+      `
+    }
 
     const sfQuery = sf.sobject(sfObject.name)
       .select(`*`)
-      .where(`SystemModstamp >= ${currentSyncDate.toISO()}`)
-      .orderby(`SystemModstamp`, `ASC`)
+      .where(where)
+      .sort({ SystemModstamp: 1, Id: 1 })
       .maxFetch(10000)
       .on(`error`, function (err) {
         console.log(`SalesForce Query Error =======================`, sfObject.name)
@@ -36,26 +50,31 @@ module.exports = async function (config) {
 
     try {
       const sfObjects = sqlite.prepare(`
-        SELECT * FROM sfObjectTypes WHERE enabled == 1;
+        SELECT * FROM sfObjects WHERE enabled == 1;
       `).all()
 
-      await Promise.map(sfObjects, async function (sfObject) {
-        const currentSyncDate = parseSQLTimestamp(sfObject.syncDate)
+      await Promise.map(sfObjects, async function (sfObjectItem) {
+        const sfObject = sqlite.prepare(`
+          SELECT * FROM sfObjects WHERE id = $id;
+        `).get({ id: sfObjectItem.id })
+
+        let currentSyncDate = DateTime.fromISO(sfObject.syncDate)
+        currentSyncDate = currentSyncDate.isValid ? currentSyncDate : DateTime.utc()
 
         console.log(`Scan ${sfObject.name} from date "${currentSyncDate.toISO()}"`)
 
-        const iterator = await getIterator(sfObject, currentSyncDate)
+        const iterator = await getIterator(sfObject, currentSyncDate, sfObject.syncId)
 
         let lastRecord = null
         let counter = 0
 
         const webhooks = sqlite.prepare(`
-          SELECT w.* FROM sfObjectTypes AS ot
-          JOIN webhookInterests as wi ON wi.sfObjectTypeId == ot.id
+          SELECT w.* FROM sfObjects AS o
+          JOIN webhookInterests as wi ON wi.sfObjectId == o.id
           JOIN webhooks as w ON w.id == wi.webhookId
-          WHERE ot.name == $name AND w.enabled == 1;
+          WHERE o.name == $name AND w.enabled == 1;
         `).all({
-          name: sfObject.name
+          name: sfObject.name,
         })
 
         for await (const sfRecord of iterator) {
@@ -68,26 +87,28 @@ module.exports = async function (config) {
           }
 
           const record = sqlite.prepare(`
-            SELECT * FROM sfObjects WHERE id = $id;
+            SELECT * FROM sfRecords WHERE id = $id;
           `).get({ id: sfRecord.Id })
 
           let result = {}
+          let action = null
 
           if (record == null) {
+            action = DateTime.fromISO(sfRecord.CreatedDate).toUTC() >= DateTime.fromISO(sfRecord.SystemModstamp).toUTC().minus({ minute: 1 }) ? `create` : `update`
             result = sfRecord
             sqlite.prepare(`
-              INSERT INTO sfObjects
-              (id, type, timestamp, data, changes)
+              INSERT INTO sfRecords
+              (id, type, timestamp, data)
               VALUES
-              ($id, $type, $timestamp, $data, $changes);
+              ($id, $type, $timestamp, $data);
             `).run({
               id: sfRecord.Id,
               type: sfObject.name,
               timestamp: DateTime.fromISO(sfRecord.SystemModstamp).toUTC().toISO(),
               data: JSON.stringify(sfRecord),
-              changes: null
             })
           } else {
+            action = `update`
             const lastData = JSON.parse(record.data)
             const changes = diff(lastData, sfRecord)
 
@@ -97,19 +118,17 @@ module.exports = async function (config) {
               }
 
               sqlite.prepare(`
-                UPDATE sfObjects
+                UPDATE sfRecords
                 SET
                   type = $type,
                   timestamp = $timestamp,
-                  data = $data,
-                  changes = $changes
+                  data = $data
                 WHERE id = $id;
               `).run({
                 id: sfRecord.Id,
                 type: sfObject.name,
                 timestamp: DateTime.fromISO(sfRecord.SystemModstamp).toUTC().toISO(),
                 data: JSON.stringify(sfRecord),
-                changes: _.isEmpty(result) ? null : JSON.stringify(result)
               })
             }
           }
@@ -119,6 +138,26 @@ module.exports = async function (config) {
               console.log(`${sfObject.name} - ${sfRecord.Name}: New record`)
             } else {
               console.log(`${sfObject.name} - ${sfRecord.Name}: ${Object.keys(result).length} changes`)
+            }
+
+            // console.log(`=============================`)
+            // console.log(`${sfRecord.SystemModstamp}`)
+            // console.log(`${DateTime.fromISO(sfRecord.SystemModstamp).toUTC().toISO()} > ${DateTime.utc().minus({ day: 30 }).toISO()}`)
+
+            if (DateTime.fromISO(sfRecord.SystemModstamp).toUTC() > DateTime.utc().minus({ day: 30 })) {
+              sqlite.prepare(`
+                INSERT INTO events
+                (key, id, type, action, timestamp, changes)
+                VALUES
+                ($key, $id, $type, $action, $timestamp, $changes);
+              `).run({
+                key: getEventKey(),
+                id: sfRecord.Id,
+                type: sfObject.name,
+                action,
+                timestamp: DateTime.fromISO(sfRecord.SystemModstamp).toUTC().toISO(),
+                changes: JSON.stringify(result),
+              })
             }
 
             for (const webhook of webhooks) {
@@ -132,12 +171,11 @@ module.exports = async function (config) {
                 data: JSON.stringify({
                   type: sfObject.name,
                   id: sfRecord.Id,
-                  action: `update`,
+                  action,
                   changes: result,
-                  record: sfRecord
                 }),
                 nextRunDate: getSQLTimestamp(),
-                webhookId: webhook.id
+                webhookId: webhook.id,
               })
             }
           }
@@ -146,12 +184,15 @@ module.exports = async function (config) {
             counter = 0
 
             sqlite.prepare(`
-              UPDATE sfObjectTypes
-              SET syncDate = $syncDate
+              UPDATE sfObjects
+              SET
+                syncDate = $syncDate,
+                syncId = $syncId
               WHERE name == $name;
             `).run({
               name: sfObject.name,
-              syncDate: DateTime.fromISO(sfRecord.SystemModstamp).toUTC().toISO()
+              syncDate: DateTime.fromISO(sfRecord.SystemModstamp).toUTC().toISO(),
+              syncId: sfRecord.Id,
             })
 
             lock.renew()
@@ -159,19 +200,16 @@ module.exports = async function (config) {
         }
 
         if (lastRecord) {
-          let newSyncDate = DateTime.fromISO(lastRecord.SystemModstamp).toUTC()
-
-          if (newSyncDate.toISO() === currentSyncDate.toISO()) {
-            newSyncDate = newSyncDate.plus({ second: 1 })
-          }
-
           sqlite.prepare(`
-            UPDATE sfObjectTypes
-            SET syncDate = $syncDate
+            UPDATE sfObjects
+            SET
+              syncDate = $syncDate,
+              syncId = $syncId
             WHERE name == $name;
           `).run({
             name: sfObject.name,
-            syncDate: stringifySQLTimestamp(newSyncDate)
+            syncDate: DateTime.fromISO(lastRecord.SystemModstamp).toUTC().toISO(),
+            syncId: lastRecord.Id,
           })
         }
 
@@ -197,15 +235,14 @@ module.exports = async function (config) {
                 id: item.id,
                 action: `delete`,
                 changes: null,
-                record: null
               }),
-              nextRunDate: getSQLTimestamp(),
-              webhookId: webhook.id
+              nextRunDate: DateTime.utc().toISO(),
+              webhookId: webhook.id,
             })
           }
 
           sqlite.prepare(`
-            DELETE FROM sfObjects WHERE id = $id;
+            DELETE FROM sfRecords WHERE id = $id;
           `).run({ id: item.id })
         }
 
@@ -216,14 +253,14 @@ module.exports = async function (config) {
         }
 
         sqlite.prepare(`
-          UPDATE sfObjectTypes
+          UPDATE sfObjects
           SET deleteDate = $deleteDate
           WHERE name == $name;
         `).run({
           name: sfObject.name,
-          deleteDate: stringifySQLTimestamp(nextDeleteDate)
+          deleteDate: nextDeleteDate.toUTC().toISO(),
         })
-      }, { concurrency: 2 })
+      }, { concurrency: 1 })
     } catch (err) {
       console.log(err)
     }
@@ -232,6 +269,6 @@ module.exports = async function (config) {
   }
 
   return {
-    scan
+    scan,
   }
 }

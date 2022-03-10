@@ -4,30 +4,30 @@ import Promise from 'bluebird'
 import { getField, updateField } from 'vuex-map-fields'
 import Vue from 'vue'
 import cookies from 'js-cookie'
-import gql from 'graphql-tag'
 
 export const strict = true
 
 export const state = function () {
   return {
+    baseURL: null,
     drawer: false,
     alert: {
       title: null,
       message: null,
-      resolve: null
+      resolve: null,
     },
     loggedIn: false,
     confirm: {
       title: null,
       message: null,
-      resolve: null
+      resolve: null,
     },
     snackbar: {
       show: false,
       color: `primary`,
-      message: null
+      message: null,
     },
-    route: {}
+    route: {},
   }
 }
 
@@ -49,12 +49,12 @@ export const mutations = {
         if (item.substr(-1) === `]`) {
           return {
             type: `index`,
-            value: parseInt(item.replace(`]`, ``), 10)
+            value: parseInt(item.replace(`]`, ``), 10),
           }
         } else {
           return {
             type: `key`,
-            value: item
+            value: item,
           }
         }
       })
@@ -86,7 +86,7 @@ export const mutations = {
         obj = _.get(obj, part.value)
       }
     })
-  }
+  },
 }
 
 export const actions = {
@@ -98,9 +98,9 @@ export const actions = {
   },
   logout: async function ({ state, commit }) {
     const res = await this.$gqlClient.mutate({
-      mutation: gql`
-        mutation { logout }
-      `
+      // mutation: gql`
+      //   mutation { logout }
+      // `,
     })
 
     const result = _.get(res, `data.logout`)
@@ -122,13 +122,13 @@ export const actions = {
       commit(`set`, {
         'alert.title': title,
         'alert.message': message,
-        'alert.resolve': resolve
+        'alert.resolve': resolve,
       })
     }).then(function (choice) {
       commit(`set`, {
         'alert.title': null,
         'alert.message': null,
-        'alert.resolve': null
+        'alert.resolve': null,
       })
 
       return choice
@@ -143,13 +143,13 @@ export const actions = {
       commit(`set`, {
         'confirm.title': title,
         'confirm.message': message,
-        'confirm.resolve': resolve
+        'confirm.resolve': resolve,
       })
     }).then(function (choice) {
       commit(`set`, {
         'confirm.title': null,
         'confirm.message': null,
-        'confirm.resolve': null
+        'confirm.resolve': null,
       })
 
       return choice
@@ -168,11 +168,11 @@ export const actions = {
     commit(`set`, {
       'snackbar.show': true,
       'snackbar.color': color,
-      'snackbar.message': message
+      'snackbar.message': message,
     })
-  }
+  },
 }
 
 export const getters = {
-  getField
+  getField,
 }

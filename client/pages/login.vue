@@ -3,7 +3,7 @@
 import _ from 'lodash'
 import { to, errMsg } from '../../lib/utils.js'
 // import { log } from 'util'
-import gql from 'graphql-tag'
+// import gql from 'graphql-tag'
 import { mapActions, mapMutations } from 'vuex'
 
 export default {
@@ -11,47 +11,36 @@ export default {
   data: function () {
     return {
       error: null,
-      password: null
+      password: null,
     }
   },
   components: {
   },
-  // layout: 'login',
   methods: {
     ...mapMutations({
-      setState: `set`
+      setState: `set`,
     }),
     ...mapActions([
       `login`,
       `showAlert`,
-      `showSnackbar`
+      `showSnackbar`,
     ]),
     submit: async function () {
       this.inFlight = true
 
-      const res = await to(this.$apollo.mutate({
-        mutation: gql`
-          mutation ($password: String!) {
-            login (password: $password)
-          }
-        `,
-        variables: {
-          password: this.password
-        },
-        refetchQueries: []
-      }))
+      const res = await this.$axios.post(`/api/login`, {
+        password: this.password,
+      })
 
       if (res.isError) {
-        console.log(errMsg(res))
         this.showAlert({ message: errMsg(res), color: `error` })
       } else {
-        const data = _.get(res, `data.login`)
-        this.login(data.token)
+        this.login(res.data.token)
       }
 
       this.inFlight = false
-    }
-  }
+    },
+  },
 }
 </script>
 
@@ -74,7 +63,6 @@ export default {
         <v-btn x-large color="primary" @click="submit"><v-icon left>fa-sign-in-alt</v-icon> Login</v-btn>
       </v-col>
       <v-col cols="auto" class="d-flex">
-        <!-- <v-btn text @click="resetPassword">Reset Password</v-btn> -->
       </v-col>
     </v-row>
   </v-container>

@@ -30,6 +30,9 @@ module.exports = async function (config) {
     ping: async function () {
       await sf.sobject(`Product2`).find().limit(1)
       console.log(`SF API Calls = ${requestCount}   Limit = ${_.get(sf, `limitInfo.apiUsage.limit`)}   Used = ${_.get(sf, `limitInfo.apiUsage.used`)}`)
-    }
+    },
+    clearCache: function () {
+      sf.cache.clear()
+    },
   }
 }

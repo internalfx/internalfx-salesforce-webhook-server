@@ -3,45 +3,24 @@
 import { mapActions } from 'vuex'
 import format from '../../../lib/format.js'
 import { to, errMsg } from '../../../lib/utils.js'
-import gql from 'graphql-tag'
 // import _ from 'lodash'
 
 import webhookReplayDialog from '../../ui/webhookReplayDialog.vue'
 
 export default {
   layout: `default`,
-  apollo: {
-    allWebhooks: {
-      query: gql`
-        query allWebhooks (
-          $page: Int,
-          $pageSize: Int
-        ) {
-          allWebhooks: allWebhooks (
-            page: $page,
-            pageSize: $pageSize
-          ) {
-            id
-            name
-            url
-            method
-            enabled
-            webhookInterests
-          }
-        }
-      `,
-      variables: function () {
-        return {
-          page: this.page,
-          pageSize: this.pageSize,
-          search: this.searchVar
-        }
-      },
-      fetchPolicy: `network-only`
-    }
+  fetch: async function () {
+    const res = await this.$axios.post(`/api/webhooks-list`, {
+      page: this.page,
+      pageSize: this.pageSize,
+      search: this.searchVar,
+    })
+
+    this.webhooks = res.data.webhooks
   },
   data: function () {
     return {
+      webhooks: [],
       replayWebhookId: null,
       replayWebhookDialog: false,
       headers: [
@@ -49,39 +28,32 @@ export default {
         { text: `URL`, value: `url`, sortable: false },
         { text: `Enabled`, value: `enabled`, sortable: false },
         { text: `Object Interests`, value: `webhookInterests`, sortable: false },
-        { text: `Actions`, value: `actions`, sortable: false, align: `right` }
-      ]
+        { text: `Actions`, value: `actions`, sortable: false, align: `right` },
+      ],
     }
   },
   components: {
-    webhookReplayDialog
+    webhookReplayDialog,
   },
   computed: {
   },
   methods: {
     ...format([
-      `stringList`
+      `stringList`,
     ]),
     ...mapActions([
       `showConfirm`,
-      `showSnackbar`
+      `showSnackbar`,
     ]),
     onClickRow: function (item) {
       this.$router.push({ path: `/webhooks/${item.id}/edit` })
     },
     replayWebhook: async function (isoDate) {
       this.inFlight = true
-      const res = await to(this.$apollo.mutate({
-        mutation: gql`
-          mutation ($id: Int!, $syncDate: DateTime!) {
-            replayWebhook (id: $id, syncDate: $syncDate)
-          }
-        `,
-        variables: {
-          id: this.replayWebhookId,
-          syncDate: isoDate
-        },
-        refetchQueries: [`allWebhooks`]
+
+      const res = await to(this.$axios.post(`/api/webhooks-replay`, {
+        id: this.replayWebhookId,
+        syncDate: isoDate,
       }))
 
       if (res.isError) {
@@ -90,48 +62,28 @@ export default {
 
       this.inFlight = false
     },
-    upsertWebhook: async function (data) {
+    updateWebhook: async function (data) {
       this.inFlight = true
-      const res = await to(this.$apollo.mutate({
-        mutation: gql`
-          mutation ($payload: WebhookInput!) {
-            upsertWebhook (payload: $payload) {
-              id
-            }
-          }
-        `,
-        variables: {
-          payload: data
-        },
-        refetchQueries: [`allWebhooks`]
-      }))
+
+      const res = await to(this.$axios.post(`/api/webhooks-update`, data))
 
       if (res.isError) {
         this.showSnackbar({ message: errMsg(res), color: `error` })
       }
 
+      this.$fetch()
       this.inFlight = false
     },
-    destroyWebhook: async function (data) {
+    destroyWebhook: async function (item) {
       this.inFlight = true
 
       const choice = await this.showConfirm({
         title: `Are you sure?`,
-        message: `This will be deleted!`
+        message: `This will be deleted!`,
       })
 
       if (choice === `yes`) {
-        const res = await to(this.$apollo.mutate({
-          mutation: gql`
-            mutation ($id: Int!) {
-              destroyWebhook (id: $id)
-            }
-          `,
-          variables: {
-            id: data.id
-          },
-          refetchQueries: [`allWebhooks`]
-        }))
+        const res = await to(this.$axios.post(`/api/webhooks-delete`, { id: item.id }))
 
         if (res.isError) {
           this.showSnackbar({ message: errMsg(res), color: `error` })
@@ -140,9 +92,10 @@ export default {
         }
       }
 
+      this.$fetch()
       this.inFlight = false
-    }
-  }
+    },
+  },
 }
 
 </script>
@@ -159,13 +112,12 @@ export default {
     </v-row>
 
     <v-data-table
-      v-if="allWebhooks"
       :headers="headers"
-      :items="allWebhooks"
+      :items="webhooks"
       class="striped clickable"
       item-key="id"
       no-data-text="No webhooks."
-      :loading="$apollo.queries.allWebhooks.loading"
+      :loading="false"
       @click:row="onClickRow"
     >
       <template v-slot:item.name="{item}">
@@ -183,12 +135,12 @@ export default {
         </div>
       </template>
       <template v-slot:item.enabled="{item}">
-        <v-switch hide-details class="ma-0 py-1" @click.stop="upsertWebhook({ id: item.id, enabled: !item.enabled })" :input-value="item.enabled" />
+        <v-switch hide-details class="ma-0 py-1" @click.stop="updateWebhook({ id: item.id, enabled: !item.enabled })" :input-value="item.enabled" />
       </template>
       <template v-slot:item.webhookInterests="{item}">
         <div class="collapse-wrapper">
-          <div class="content">{{item.webhookInterests.join(`, `)}}</div>
-          <div class="spacer">{{item.webhookInterests.join(`, `).replaceAll(/.{0,2}/g, `_ `)}}</div>
+          <div class="content">{{item.webhookInterests.map(i => i.sfObject.name).join(`, `)}}</div>
+          <div class="spacer">{{item.webhookInterests.map(i => i.sfObject.name).join(`, `).replaceAll(/.{0,2}/g, `_ `)}}</div>
           <span>&nbsp;</span>
         </div>
       </template>
@@ -198,7 +150,7 @@ export default {
             <template v-slot:activator="{on}">
               <span v-on="on">
                 <v-btn @click.stop="replayWebhookId = item.id; replayWebhookDialog = true" text fab small class="ma-0 mr-2">
-                  <v-icon>fa-history</v-icon>
+                  <v-icon>mdi-history</v-icon>
                 </v-btn>
               </span>
             </template>
@@ -208,7 +160,7 @@ export default {
             <template v-slot:activator="{on}">
               <span v-on="on">
                 <v-btn @click.stop text fab small class="ma-0 mr-2" :to="{path: `/webhooks/${item.id}/edit`}">
-                  <v-icon>fa-edit</v-icon>
+                  <v-icon>mdi-pencil</v-icon>
                 </v-btn>
               </span>
             </template>
@@ -218,7 +170,7 @@ export default {
             <template v-slot:activator="{on}">
               <span v-on="on">
                 <v-btn @click.stop="destroyWebhook(item)" text fab small color="error" class="ma-0 mr-2">
-                  <v-icon>fa-trash-alt</v-icon>
+                  <v-icon>mdi-delete</v-icon>
                 </v-btn>
               </span>
             </template>

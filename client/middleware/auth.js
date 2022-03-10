@@ -1,6 +1,6 @@
 
 const loginPaths = [
-  `/login`
+  `/login`,
 ]
 
 export default function ({ app, redirect, route, store }) {

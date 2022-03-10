@@ -4,6 +4,12 @@ module.exports = function () {
   const enableLogging = false
   let number = 0
 
+  const createError = function (name, message) {
+    const err = Error(message)
+    err.name = name
+    return err
+  }
+
   const log = function (...args) {
     if (enableLogging) {
       console.log(...args)
@@ -36,7 +42,7 @@ module.exports = function () {
       locks[name] = {
         number: null,
         timer: null,
-        queue: null
+        queue: null,
       }
     }
 
@@ -63,7 +69,7 @@ module.exports = function () {
     return {
       isValid,
       renew,
-      release
+      release,
     }
   }
 
@@ -73,7 +79,7 @@ module.exports = function () {
 
     if (isLocked(lock)) {
       log(`++++ LOCK SYSTEM ++++ denied lock ${name}`)
-      throw new Error(`Failed to get lock: "${name}"`)
+      throw createError(`FAILLOCK`, `Failed to get lock: "${name}"`)
     } else {
       log(`++++ LOCK SYSTEM ++++ acquired lock ${name}`)
       const lock = findLock(name)
@@ -91,7 +97,7 @@ module.exports = function () {
     if (isLocked(lock)) {
       log(`++++ LOCK SYSTEM ++++ added to lock queue ${name}`)
       const ticket = {
-        expiration
+        expiration,
       }
 
       ticket.promise = new Promise(function (resolve, reject) {
@@ -150,6 +156,6 @@ module.exports = function () {
 
   return {
     failLock,
-    awaitLock
+    awaitLock,
   }
 }

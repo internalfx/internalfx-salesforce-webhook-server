@@ -1,76 +1,56 @@
 
 <script>
-import { mapActions } from 'vuex'
-import { to, errMsg } from '../../../../lib/utils.js'
-import gql from 'graphql-tag'
+import { mapActions, mapState } from 'vuex'
+import { to, errMsg } from '~lib/utils.js'
 import _ from 'lodash'
-import moment from 'moment'
+import { DateTime } from 'luxon'
 
 export default {
   layout: `default`,
-  apollo: {
-    record: {
-      query: gql`
-        query getSfObjectType ($id: Int!) {
-          record: getSfObjectType (id: $id) {
-            id
-            name
-            enabled
-            syncDate
-          }
-        }
-      `,
-      variables: function () {
-        return {
-          id: parseInt(this.$route.params.id, 10)
-        }
-      },
-      result: function (res) {
-        this.sfObjectType = _.omit(res.data.record, `__typename`)
-      },
-      fetchPolicy: `no-cache`
-    }
+  fetch: async function () {
+    const res = await this.$axios.post(`/api/sfobjects-show`, { id: this.$route.params.id })
+    this.sfObject = res.data.sfObject
   },
   data: function () {
     return {
       inFlight: false,
-      sfObjectType: null,
+      sfObject: null,
       dateModal: false,
-      date: new Date().toISOString().substr(0, 10)
+      date: new Date().toISOString().substr(0, 10),
     }
   },
   components: {
   },
   computed: {
+    ...mapState({
+      baseURL: state => state.baseURL,
+    }),
     pickerValue: {
       get: function () {
-        return moment(this.sfObjectType.syncDate).format(`YYYY-MM-DD`)
+        return DateTime.fromISO(this.sfObject.syncDate).toLocal().toISODate()
       },
       set: function (value) {
-        this.sfObjectType.syncDate = moment(value).toDate()
-      }
-    }
+        this.sfObject.syncDate = DateTime.fromISO(value).toUTC().toISO()
+      },
+    },
   },
   methods: {
     ...mapActions([
       `showConfirm`,
-      `showSnackbar`
+      `showSnackbar`,
     ]),
     save: async function () {
       this.inFlight = true
-      const res = await to(this.$apollo.mutate({
-        mutation: gql`
-          mutation ($payload: sfObjectTypeInput!) {
-            upsertSfObjectType (payload: $payload) {
-              id
-            }
-          }
-        `,
-        variables: {
-          payload: this.sfObjectType
-        },
-        refetchQueries: [`allSfObjectTypes`]
-      }))
+
+      const res = await to(this.$axios.post(
+        `/api/sfobjects-update`,
+        _.pick(this.sfObject, [
+          `id`,
+          `name`,
+          `enabled`,
+          `syncDate`,
+        ]),
+      ))
 
       if (res.isError) {
         this.showSnackbar({ message: errMsg(res), color: `error` })
@@ -80,14 +60,14 @@ export default {
       }
 
       this.inFlight = false
-    }
-  }
+    },
+  },
 }
 
 </script>
 
 <template>
-  <v-container v-if="sfObjectType">
+  <v-container v-if="sfObject">
     <v-row class="mt-6 mb-7 align-center">
       <v-col class="d-flex">
         <h1>Edit SalesForce Object</h1>
@@ -96,8 +76,8 @@ export default {
       </v-col>
     </v-row>
 
-    <v-text-field readonly :value="sfObjectType.name" outlined label="Object Name" />
-    <v-switch v-model="sfObjectType.enabled" label="Enabled" class="ma-0 py-1" />
+    <v-text-field readonly :value="sfObject.name" outlined label="Object Name" />
+    <v-switch v-model="sfObject.enabled" label="Enabled" class="ma-0 py-1" />
     <v-dialog
       ref="dialog"
       v-model="dateModal"
@@ -124,8 +104,8 @@ export default {
 
     <v-row>
       <v-col class="d-flex align-center">
-        <v-btn x-large color="primary" :loading="inFlight" :disabled="inFlight" @click="save"><v-icon left>fa-check</v-icon> Save</v-btn>
-        <v-btn class="ml-7" text color="secondary" @click="$router.go(-1)"><v-icon left>fa-times</v-icon> Cancel</v-btn>
+        <v-btn x-large color="primary" :loading="inFlight" :disabled="inFlight" @click="save"><v-icon left>mdi-check</v-icon> Save</v-btn>
+        <v-btn class="ml-7" text color="secondary" @click="$router.go(-1)"><v-icon left>mdi-close</v-icon> Cancel</v-btn>
       </v-col>
       <v-col cols="auto" class="d-flex align-center justify-end">
       </v-col>

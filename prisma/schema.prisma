@@ -1,62 +1,80 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-datasource sqlite {
+datasource db {
   provider = "sqlite"
   url      = "file:../ifx-sws.sqlite"
 }
 
 generator client {
   provider = "prisma-client-js"
+  engineType = "binary"
+  previewFeatures = ["interactiveTransactions"]
 }
 
 model session {
   @@map(name: "sessions")
 
-  id Int @default(autoincrement()) @id
-  token String
-  createdAt DateTime
+  token String @id
+  createdAt String
+}
+
+model event {
+  @@map(name: "events")
+  @@index([type, timestamp, id])
+  @@index([timestamp, id])
+
+  key String @id
+  id String
+  type String
+  action String
+  timestamp String
+  changes String?
+}
+
+model sfRecord {
+  @@map(name: "sfRecords")
+  @@index([type, timestamp, id])
+  @@index([timestamp, id])
+
+  id String @id
+  type String
+  timestamp String
+  data String
 }
 
 model sfObject {
   @@map(name: "sfObjects")
-  @@index([type, timestamp, id])
 
   id String @id
-  type String
-  timestamp DateTime
-  data String
-  changes String?
-}
-
-model sfObjectType {
-  @@map(name: "sfObjectTypes")
-
-  id Int @default(autoincrement()) @id
   name String @unique
+  slug String @unique
   enabled Boolean @default(false)
-  syncDate DateTime
-  deleteDate DateTime
+  syncDate String
+  syncId String?
+  deleteDate String?
+
+  webhookInterests webhookInterest[]
 }
 
 model webhookRequest {
   @@map(name: "webhookRequests")
   @@index([webhookId, nextRunDate, id])
 
-  id Int @default(autoincrement()) @id
+  id String @id
   headers String?
   data String?
   attempts Int @default(0)
-  nextRunDate DateTime
+  nextRunDate String
 
-  webhookId Int
+  webhookId String
   webhook webhook @relation(fields: [webhookId], references: [id])
 }
 
 model webhook {
   @@map(name: "webhooks")
 
-  id Int @default(autoincrement()) @id
+  id String @id
   name String
   url String
   method String @default("post")
@@ -69,13 +87,13 @@ model webhook {
 
 model webhookInterest {
   @@map(name: "webhookInterests")
-  @@unique([sfObjectTypeId, webhookId])
+  @@unique([sfObjectId, webhookId])
 
-  id Int @default(autoincrement()) @id
+  id String @id
 
-  webhookId Int
-  webhook webhook @relation(fields: [webhookId], references: [id])
+  webhookId String
+  webhook webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
 
-  sfObjectTypeId Int
-  sfObjectType sfObjectType @relation(fields: [sfObjectTypeId], references: [id])
+  sfObjectId String
+  sfObject sfObject @relation(fields: [sfObjectId], references: [id], onDelete: Cascade)
 }

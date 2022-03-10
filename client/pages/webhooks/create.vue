@@ -1,33 +1,25 @@
 
 <script>
 import { mapActions } from 'vuex'
-import { to, errMsg } from '../../../lib/utils.js'
-import gql from 'graphql-tag'
+import { to, errMsg } from '~lib/utils.js'
 
 export default {
   layout: `default`,
-  apollo: {
-    sfObjectTypes: {
-      query: gql`
-        query allSfObjectTypes {
-          sfObjectTypes: allSfObjectTypes {
-            name
-          }
-        }
-      `
-    }
+  fetch: async function () {
+    const res = await this.$axios.post(`/api/sfobjects-list`)
+    this.sfObjects = res.data.sfObjects
   },
   data: function () {
     return {
       inFlight: false,
+      sfObjects: [],
       webhook: {
-        id: null,
         name: null,
         url: null,
         method: `post`,
         enabled: false,
-        webhookInterests: []
-      }
+        webhookInterests: [],
+      },
     }
   },
   components: {
@@ -37,23 +29,11 @@ export default {
   methods: {
     ...mapActions([
       `showConfirm`,
-      `showSnackbar`
+      `showSnackbar`,
     ]),
     save: async function () {
       this.inFlight = true
-      const res = await to(this.$apollo.mutate({
-        mutation: gql`
-          mutation ($payload: WebhookInput!) {
-            upsertWebhook (payload: $payload) {
-              id
-            }
-          }
-        `,
-        variables: {
-          payload: this.webhook
-        },
-        refetchQueries: [`allWebhooks`]
-      }))
+      const res = await to(this.$axios.post(`/api/webhooks-create`, this.webhook))
 
       if (res.isError) {
         this.showSnackbar({ message: errMsg(res), color: `error` })
@@ -63,8 +43,8 @@ export default {
       }
 
       this.inFlight = false
-    }
-  }
+    },
+  },
 }
 
 </script>
@@ -84,10 +64,12 @@ export default {
     <v-switch v-model="webhook.enabled" label="Enabled" class="ma-0 py-1" />
     <v-autocomplete
       v-model="webhook.webhookInterests"
-      :items="sfObjectTypes"
-      :loading="$apollo.queries.sfObjectTypes.loading"
+      :items="sfObjects"
+      :loading="inFlight"
       label="Object Interests"
+      item-value="id"
       item-text="name"
+      return-object
       multiple
       clearable
       outlined
@@ -95,8 +77,8 @@ export default {
 
     <v-row>
       <v-col class="d-flex align-center">
-        <v-btn x-large color="primary" :loading="inFlight" :disabled="inFlight" @click="save"><v-icon left>fa-check</v-icon> Save</v-btn>
-        <v-btn class="ml-7" text color="secondary" @click="$router.go(-1)"><v-icon left>fa-times</v-icon> Cancel</v-btn>
+        <v-btn x-large color="primary" :loading="inFlight" :disabled="inFlight" @click="save"><v-icon left>mdi-check</v-icon> Save</v-btn>
+        <v-btn class="ml-7" text color="secondary" @click="$router.go(-1)"><v-icon left>mdi-close</v-icon> Cancel</v-btn>
       </v-col>
       <v-col cols="auto" class="d-flex align-center justify-end">
       </v-col>

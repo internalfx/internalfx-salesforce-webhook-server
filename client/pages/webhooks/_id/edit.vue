@@ -1,50 +1,25 @@
 
 <script>
 import { mapActions } from 'vuex'
-import { to, errMsg } from '../../../../lib/utils.js'
-import gql from 'graphql-tag'
+import { to, errMsg } from '~lib/utils.js'
 import _ from 'lodash'
 
 export default {
   layout: `default`,
-  apollo: {
-    record: {
-      query: gql`
-        query getWebhook ($id: Int!) {
-          record: getWebhook (id: $id) {
-            id
-            name
-            url
-            method
-            enabled
-            webhookInterests
-          }
-        }
-      `,
-      variables: function () {
-        return {
-          id: parseInt(this.$route.params.id, 10)
-        }
-      },
-      result: function (res) {
-        this.webhook = _.omit(res.data.record, `__typename`)
-      },
-      fetchPolicy: `no-cache`
-    },
-    sfObjectTypes: {
-      query: gql`
-        query allSfObjectTypes {
-          sfObjectTypes: allSfObjectTypes {
-            name
-          }
-        }
-      `
+  fetch: async function () {
+    const res2 = await this.$axios.post(`/api/sfobjects-list`)
+    this.sfObjects = res2.data.sfObjects
+
+    const res = await this.$axios.post(`/api/webhooks-show`, { id: this.$route.params.id })
+    this.webhook = {
+      ...res.data.webhook,
+      webhookInterests: res.data.webhook.webhookInterests.map(i => _.get(i, `sfObject`)),
     }
   },
   data: function () {
     return {
       inFlight: false,
-      webhook: null
+      webhook: null,
     }
   },
   components: {
@@ -54,23 +29,15 @@ export default {
   methods: {
     ...mapActions([
       `showConfirm`,
-      `showSnackbar`
+      `showSnackbar`,
     ]),
     save: async function () {
       this.inFlight = true
-      const res = await to(this.$apollo.mutate({
-        mutation: gql`
-          mutation ($payload: WebhookInput!) {
-            upsertWebhook (payload: $payload) {
-              id
-            }
-          }
-        `,
-        variables: {
-          payload: this.webhook
-        },
-        refetchQueries: [`allWebhooks`]
-      }))
+
+      const res = await to(this.$axios.post(
+        `/api/webhooks-update`,
+        this.webhook,
+      ))
 
       if (res.isError) {
         this.showSnackbar({ message: errMsg(res), color: `error` })
@@ -80,8 +47,8 @@ export default {
       }
 
       this.inFlight = false
-    }
-  }
+    },
+  },
 }
 
 </script>
@@ -101,10 +68,12 @@ export default {
     <v-switch v-model="webhook.enabled" label="Enabled" class="ma-0 py-1" />
     <v-autocomplete
       v-model="webhook.webhookInterests"
-      :items="sfObjectTypes"
-      :loading="$apollo.queries.sfObjectTypes.loading"
+      :items="sfObjects"
+      :loading="inFlight"
       label="Object Interests"
+      item-value="id"
       item-text="name"
+      return-object
       multiple
       clearable
       outlined
@@ -112,8 +81,8 @@ export default {
 
     <v-row>
       <v-col class="d-flex align-center">
-        <v-btn x-large color="primary" :loading="inFlight" :disabled="inFlight" @click="save"><v-icon left>fa-check</v-icon> Save</v-btn>
-        <v-btn class="ml-7" text color="secondary" @click="$router.go(-1)"><v-icon left>fa-times</v-icon> Cancel</v-btn>
+        <v-btn x-large color="primary" :loading="inFlight" :disabled="inFlight" @click="save"><v-icon left>mdi-check</v-icon> Save</v-btn>
+        <v-btn class="ml-7" text color="secondary" @click="$router.go(-1)"><v-icon left>mdi-close</v-icon> Cancel</v-btn>
       </v-col>
       <v-col cols="auto" class="d-flex align-center justify-end">
       </v-col>

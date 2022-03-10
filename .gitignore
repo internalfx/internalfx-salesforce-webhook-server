@@ -7,3 +7,11 @@ npm-debug.log
 *.sqlite-shm
 *.sqlite-wal
 *.sh
+
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions

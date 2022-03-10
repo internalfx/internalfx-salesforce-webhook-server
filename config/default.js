@@ -10,10 +10,10 @@ module.exports = {
     `httpError`,
     `session`,
     `router`,
-    `nuxtRender`
+    `nuxtRender`,
   ],
   koa: {
-    proxy: true
+    proxy: true,
   },
   port: 8000,
   services: [
@@ -21,13 +21,20 @@ module.exports = {
     `prisma`,
     `sqlite`,
     `nuxt`,
+    `joi`,
     `salesforce`,
     `sfScanner`,
     `requestProcessor`,
-    `cron`
+    `cron`,
+  ],
+  servicesNoReload: [
+    `prisma`,
+    `sqlite`,
+    `nuxt`,
+    `cron`,
   ],
   session: {
     sessionCookieName: `auth.sfwebook.local`,
-    sessionCookieMaxAge: 1000 * 60 * 60 * 24 * 365
-  }
+    sessionCookieMaxAge: 1000 * 60 * 60 * 24 * 365,
+  },
 }

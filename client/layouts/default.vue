@@ -6,12 +6,12 @@ export default {
   data: function () {
     return {
       navColor: `#606060`,
-      updating: false
+      updating: false,
     }
   },
   components: {
     layoutDrawer,
-    layoutFooter
+    layoutFooter,
   },
   computed: {
   },
@@ -23,10 +23,10 @@ export default {
           location.reload()
         })
       })
-    }
+    },
   },
   mounted: function () {
-  }
+  },
 }
 </script>
 

@@ -1,38 +1,28 @@
 
 <script>
 import { mapActions } from 'vuex'
-import format from '../../../lib/format.js'
-import { to, errMsg } from '../../../lib/utils.js'
-import gql from 'graphql-tag'
-// import _ from 'lodash'
+import format from '~lib/format.js'
+import { to, errMsg } from '~lib/utils.js'
 
 export default {
   layout: `default`,
-  apollo: {
-    sfObjectTypes: {
-      query: gql`
-        query allSfObjectTypes {
-          sfObjectTypes: allSfObjectTypes {
-            id
-            name
-            enabled
-            syncDate
-          }
-        }
-      `,
-      fetchPolicy: `network-only`
-    }
+  fetch: async function () {
+    const res = await this.$axios.post(`/api/sfobjects-list`, {
+    })
+
+    this.sfObjects = res.data.sfObjects
   },
   data: function () {
     return {
+      inFlight: false,
       searchVar: ``,
+      sfObjects: [],
       headers: [
-        { text: `ID`, value: `id`, sortable: false },
         { text: `Object Name`, value: `name`, sortable: false },
         { text: `Enabled`, value: `enabled`, sortable: false },
         { text: `Sync Date`, value: `syncDate`, sortable: false },
-        { text: `Actions`, value: `actions`, sortable: false, align: `right` }
-      ]
+        { text: `Actions`, value: `actions`, sortable: false, align: `right` },
+      ],
     }
   },
   components: {
@@ -41,68 +31,52 @@ export default {
   },
   methods: {
     ...format([
-      `stringList`
+      `stringList`,
     ]),
     ...mapActions([
       `showConfirm`,
-      `showSnackbar`
+      `showSnackbar`,
     ]),
     onClickRow: function (item) {
       this.$router.push({ path: `/sfobjects/${item.id}/edit` })
     },
-    upsertSfObjectType: async function (data) {
+    updateSfObject: async function (data) {
       this.inFlight = true
-      const res = await to(this.$apollo.mutate({
-        mutation: gql`
-          mutation ($payload: sfObjectTypeInput!) {
-            upsertSfObjectType (payload: $payload) {
-              id
-            }
-          }
-        `,
-        variables: {
-          payload: data
-        },
-        refetchQueries: [`allSfObjectTypes`]
-      }))
+
+      const res = await to(this.$axios.post(
+        `/api/sfobjects-update`,
+        data,
+      ))
 
       if (res.isError) {
         this.showSnackbar({ message: errMsg(res), color: `error` })
       }
 
+      this.$fetch()
       this.inFlight = false
     },
-    destroySfObjectType: async function (item) {
+    destroySfObject: async function (item) {
       this.inFlight = true
 
       const choice = await this.showConfirm({
         title: `Are you sure?`,
-        message: `This will be deleted!`
+        message: `This will be deleted!`,
       })
 
       if (choice === `yes`) {
-        const res = await to(this.$apollo.mutate({
-          mutation: gql`
-            mutation ($id: Int!) {
-              destroySfObjectType (id: $id)
-            }
-          `,
-          variables: {
-            id: item.id
-          },
-          refetchQueries: [`allSfObjectTypes`]
-        }))
+        const res = await to(this.$axios.post(`/api/sfobjects-delete`, { id: item.id }))
 
         if (res.isError) {
           this.showSnackbar({ message: errMsg(res), color: `error` })
         } else {
-          this.showSnackbar({ message: `SalesForce Object deleted.`, color: `success` })
+          this.showSnackbar({ message: `Webhook deleted.`, color: `success` })
         }
       }
 
+      this.$fetch()
       this.inFlight = false
-    }
-  }
+    },
+  },
 }
 
 </script>
@@ -119,24 +93,24 @@ export default {
     </v-row>
 
     <v-data-table
-      v-if="sfObjectTypes"
+      v-if="sfObjects"
       :headers="headers"
-      :items="sfObjectTypes"
+      :items="sfObjects"
       class="striped clickable"
       item-key="id"
-      no-data-text="No SF Object Types."
-      :loading="$apollo.queries.sfObjectTypes.loading"
+      no-data-text="No SF Objects."
+      :loading="inFlight"
       @click:row="onClickRow"
     >
       <template v-slot:item.enabled="{item}">
-        <v-switch hide-details class="ma-0 py-1" @click.stop="upsertSfObjectType({ id: item.id, enabled: !item.enabled })" :input-value="item.enabled" />
+        <v-switch hide-details class="ma-0 py-1" @click.stop="updateSfObject({ id: item.id, enabled: !item.enabled })" :input-value="item.enabled" />
       </template>
       <template v-slot:item.actions="{item}">
         <v-tooltip top>
           <template v-slot:activator="{on}">
             <span v-on="on">
               <v-btn @click.stop text fab small class="ma-0 mr-2" :to="{path: `/sfobjects/${item.id}/edit`}">
-                <v-icon>fa-edit</v-icon>
+                <v-icon>mdi-pencil</v-icon>
               </v-btn>
             </span>
           </template>
@@ -145,8 +119,8 @@ export default {
         <v-tooltip top>
           <template v-slot:activator="{on}">
             <span v-on="on">
-              <v-btn @click.stop="destroySfObjectType(item)" text fab small color="error" class="ma-0 mr-2">
-                <v-icon>fa-trash-alt</v-icon>
+              <v-btn @click.stop="destroySfObject(item)" text fab small color="error" class="ma-0 mr-2">
+                <v-icon>mdi-delete</v-icon>
               </v-btn>
             </span>
           </template>

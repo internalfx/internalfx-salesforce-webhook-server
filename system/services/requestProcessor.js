@@ -1,17 +1,17 @@
 
-const substruct = require(`@internalfx/substruct`)
+const substruct = require(`../../substruct.js`)
 const rp = require(`request-promise`)
 const { DateTime } = require(`luxon`)
 const Promise = require(`bluebird`)
 const _ = require(`lodash`)
-const { to, getSQLTimestamp, stringifySQLTimestamp } = require(`../../lib/utils.js`)
+const { to } = require(`../../lib/utils.js`)
 
 module.exports = async function (config) {
   const sqlite = substruct.services.sqlite
   const ifxLock = substruct.services.ifxLock
 
   const process = async function () {
-    const lock = ifxLock.failLock(`requestProcessor`, 180 * 1000)
+    const lock = ifxLock.failLock(`requestProcessor`, 1000 * 180)
 
     try {
       const webhookIds = sqlite.prepare(`
@@ -23,7 +23,7 @@ module.exports = async function (config) {
           SELECT * FROM webhooks WHERE id = $id;
         `).get({ id: webhookId })
 
-        const queryNext = sqlite.asyncPrepare(`
+        const queryNext = sqlite.prepare(`
           SELECT * FROM webhookRequests
           WHERE
             webhookId == $webhookId AND
@@ -33,13 +33,15 @@ module.exports = async function (config) {
           LIMIT 200;
         `)
 
-        const nextRunDate = getSQLTimestamp()
+        const nextRunDate = DateTime.utc().toISO()
         let lastRunDate = DateTime.fromSeconds(0).toUTC().toISO()
         let lastId = ``
 
-        let requests = await queryNext.all({ webhookId, lastRunDate, nextRunDate, lastId })
+        let requests = queryNext.all({ webhookId, lastRunDate, nextRunDate, lastId })
 
         while (requests.length > 0) {
+          lock.renew()
+
           const payload = requests.map(function (request) {
             return JSON.parse(request.data)
           })
@@ -53,7 +55,7 @@ module.exports = async function (config) {
             url: webhook.url,
             method: webhook.method,
             json: true,
-            body: payload
+            body: payload,
           }))
 
           if (!lock.isValid()) {
@@ -65,19 +67,19 @@ module.exports = async function (config) {
             for (const request of requests) {
               if (result.isError) {
                 if (request.attempts <= 16) {
-                  const nextRunDate = DateTime.fromMillis(Date.now() + (Math.pow(2, request.attempts) * 1000))
+                  const nextRunDate = DateTime.utc().plus({ seconds: Math.pow(2, request.attempts) })
                   sqlite.prepare(`
                     UPDATE webhookRequests SET attempts = attempts + 1, nextRunDate = $nextRunDate WHERE id = $id;
                   `).run({
                     id: request.id,
-                    nextRunDate: stringifySQLTimestamp(nextRunDate)
+                    nextRunDate: nextRunDate.toUTC().toISO(),
                   })
                   console.log(result.message)
                 } else {
                   sqlite.prepare(`
                     DELETE FROM webhookRequests WHERE id = $id;
                   `).run({
-                    id: request.id
+                    id: request.id,
                   })
                   console.log(`webhook request ${request.id} had too many failures.`)
                 }
@@ -85,7 +87,7 @@ module.exports = async function (config) {
                 sqlite.prepare(`
                   DELETE FROM webhookRequests WHERE id = $id;
                 `).run({
-                  id: request.id
+                  id: request.id,
                 })
                 console.log(`webhook request ${request.id} sent.`)
               }
@@ -107,6 +109,6 @@ module.exports = async function (config) {
   }
 
   return {
-    process
+    process,
   }
 }
