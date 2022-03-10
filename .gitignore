@@ -6,6 +6,7 @@ npm-debug.log
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.sqlite-journal
 *.sh
 
 .pnp.*
