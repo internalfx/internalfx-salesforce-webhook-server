@@ -6,6 +6,7 @@ const diff = require(`deep-diff`)
 const { getSQLTimestamp, parseSQLTimestamp, getEventKey } = require(`../../lib/utils.js`)
 const substruct = require(`../../substruct.js`)
 const { DateTime } = require(`luxon`)
+const { randomUUID } = require(`crypto`)
 
 module.exports = async function (config) {
   const sqlite = substruct.services.sqlite
@@ -163,10 +164,11 @@ module.exports = async function (config) {
             for (const webhook of webhooks) {
               sqlite.prepare(`
                 INSERT INTO webhookRequests
-                (headers, data, nextRunDate, webhookId)
+                (id, headers, data, nextRunDate, webhookId)
                 VALUES
-                ($headers, $data, $nextRunDate, $webhookId);
+                ($id, $headers, $data, $nextRunDate, $webhookId);
               `).run({
+                id: randomUUID(),
                 headers: null,
                 data: JSON.stringify({
                   type: sfObject.name,
@@ -225,10 +227,11 @@ module.exports = async function (config) {
           for (const webhook of webhooks) {
             sqlite.prepare(`
               INSERT INTO webhookRequests
-              (headers, data, nextRunDate, webhookId)
+              (id, headers, data, nextRunDate, webhookId)
               VALUES
-              ($headers, $data, $nextRunDate, $webhookId);
+              ($id, $headers, $data, $nextRunDate, $webhookId);
             `).run({
+              id: randomUUID(),
               headers: null,
               data: JSON.stringify({
                 type: sfObject.name,
