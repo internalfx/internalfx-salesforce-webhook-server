@@ -209,9 +209,9 @@ module.exports = {
 
     const queryInsertWebhookRequest = sqlite.prepare(`
       INSERT INTO webhookRequests
-      (headers, data, nextRunDate, webhookId)
+      (id, headers, data, nextRunDate, webhookId)
       VALUES
-      ($headers, $data, $nextRunDate, $webhookId);
+      ($id, $headers, $data, $nextRunDate, $webhookId);
     `)
 
     while (events.length > 0) {
@@ -220,6 +220,7 @@ module.exports = {
       sqlite.transaction(function () {
         for (const event of events) {
           queryInsertWebhookRequest.run({
+            id: randomUUID(),
             headers: null,
             data: JSON.stringify({
               type: event.type,
