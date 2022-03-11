@@ -42,16 +42,26 @@ module.exports = {
     const where = {}
 
     if (args.type) {
-      where.type = args.type
+      _.set(where, `AND.type`, { in: args.type })
     }
 
-    if (args.fromDate) {
-      where.timestamp = { gte: args.fromDate }
+    if (args.fromDate && args.cursor) {
+      where.OR = [
+        {
+          AND: {
+            timestamp: args.fromDate,
+            id: { gt: args.cursor },
+          },
+        },
+        {
+          timestamp: { gt: args.fromDate },
+        },
+      ]
+    } else if (args.fromDate) {
+      _.set(where, `AND.timestamp`, { gte: args.fromDate })
     }
 
-    if (args.cursor) {
-      where.id = { gt: args.cursor }
-    }
+    // console.dir(where, { depth: null })
 
     const records = (await prisma.sfRecord.findMany({
       where: where,
