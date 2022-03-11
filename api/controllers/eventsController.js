@@ -38,15 +38,23 @@ module.exports = {
     const where = {}
 
     if (args.type) {
-      where.type = args.type
+      _.set(where, `AND.type`, { in: args.type })
     }
 
-    if (args.fromDate) {
-      where.timestamp = { gte: args.fromDate }
-    }
-
-    if (args.cursor) {
-      where.key = { gt: args.cursor }
+    if (args.fromDate && args.cursor) {
+      where.OR = [
+        {
+          AND: {
+            timestamp: args.fromDate,
+            key: { gt: args.cursor },
+          },
+        },
+        {
+          timestamp: { gt: args.fromDate },
+        },
+      ]
+    } else if (args.fromDate) {
+      _.set(where, `AND.timestamp`, { gte: args.fromDate })
     }
 
     const events = (await prisma.event.findMany({
@@ -61,9 +69,12 @@ module.exports = {
       return record
     })
 
+    const last = _.last(events)
+
     ctx.body = {
       events,
-      cursor: _.last(events) ? _.last(events).key : null,
+      cursor: last ? last.key : null,
+      fromDate: last ? last.timestamp : null,
     }
   },
 }

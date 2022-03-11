@@ -61,8 +61,6 @@ module.exports = {
       _.set(where, `AND.timestamp`, { gte: args.fromDate })
     }
 
-    // console.dir(where, { depth: null })
-
     const records = (await prisma.sfRecord.findMany({
       where: where,
       orderBy: [
@@ -75,9 +73,12 @@ module.exports = {
       return record
     })
 
+    const last = _.last(records)
+
     ctx.body = {
       records,
-      cursor: _.last(records) ? _.last(records).id : null,
+      cursor: last ? last.id : null,
+      fromDate: last ? last.timestamp : null,
     }
   },
   show: async function (ctx) {
