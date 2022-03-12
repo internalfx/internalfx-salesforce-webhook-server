@@ -31,7 +31,7 @@ module.exports = async function (config) {
     await prisma.event.deleteMany({
       where: {
         timestamp: {
-          lte: DateTime.utc().minus({ day: 30 }).toISO(),
+          lte: DateTime.utc().minus({ day: 31 }).toISO(),
         },
       },
     })
